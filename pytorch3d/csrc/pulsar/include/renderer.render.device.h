@@ -233,6 +233,7 @@ GLOBAL void render(
               ray_dir_norm, // Ray direction.
               projected_ray, // Ray intersection with the image.
               // Mode switches.
+              mode == 2u ? true : false, // Hit Only
               true, // Draw.
               false,
               false,
@@ -267,7 +268,7 @@ GLOBAL void render(
                 max_closest_possible_intersection_hit,
                 closest_possible_intersection);
             tracker.track(
-                sphere_id_l[draw_idx], intersection_depth, coord_x, coord_y);
+                sphere_id_l[draw_idx], draw_idx, intersection_depth, coord_x, coord_y);
           }
           max_closest_possible_intersection = FMAX(
               max_closest_possible_intersection, closest_possible_intersection);
@@ -325,6 +326,7 @@ GLOBAL void render(
           ray_dir_norm, // Ray direction.
           projected_ray, // Ray intersection with the image.
           // Mode switches.
+          mode == 2u ? true : false, // Hit Only
           true, // Draw.
           false,
           false,
@@ -359,7 +361,7 @@ GLOBAL void render(
             max_closest_possible_intersection_hit,
             closest_possible_intersection);
         tracker.track(
-            sphere_id_l[draw_idx], intersection_depth, coord_x, coord_y);
+            sphere_id_l[draw_idx], draw_idx, intersection_depth, coord_x, coord_y);
       }
     }
   }
@@ -378,6 +380,36 @@ GLOBAL void render(
              cam_norm.n_channels +
          (coord_x - cam_norm.film_border_left) * cam_norm.n_channels] =
             static_cast<float>(tracker.get_n_hits());
+  }
+  else if (mode == 2u) {
+    // Render with NeRF equation.
+    float light_intensity = 1.f;
+    float t_prev = 1.f;  // nearest depth is 1.
+    for (int i = 0; i < n_track; ++i) {
+      float t = tracker.get_closest_sphere_depth(i);
+      if (t == MAX_FLOAT) {
+        continue;
+      }
+      uint draw_idx = tracker.get_closest_sphere_draw_id(i);
+      float delta_t = FABS(t_prev - t);
+      float sigmoid = op_d == NULL ? MAX_FLOAT : op_d[sphere_id_l[draw_idx]];
+      float att = FEXP(- delta_t * sigmoid);
+      float weight = light_intensity * (1.f - att);
+      float const* const col_ptr =
+        cam_norm.n_channels > 3 ? di_l[draw_idx].color_union.ptr : &di_l[draw_idx].first_color;
+      for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id) {
+        PASSERT(isfinite(result[c_id]));
+        result[c_id] = FMA(weight, col_ptr[c_id], result[c_id]);
+      }
+
+      PULSAR_LOG_DEV_PIX(
+          PULSAR_LOG_NERF_PIX,
+          "render|nerf accum. i(%d), t(%.5f), sigmoid(%.5f), att(%.5f).\n",
+          i, t, sigmoid, att);
+          
+      light_intensity *= att;
+      t_prev = t;
+    }
   } else {
     float sm_d_normfac = FRCP(FMAX(sm_d, FEPS));
     for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)

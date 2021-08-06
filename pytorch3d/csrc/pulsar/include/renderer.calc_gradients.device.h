@@ -141,6 +141,7 @@ GLOBAL void calc_gradients(
           ray_dir_norm,
           projected_ray,
           // Mode switches.
+          false, // Hit Only
           false, // draw only
           calc_grad_pos,
           calc_grad_col,

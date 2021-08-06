@@ -608,7 +608,7 @@ std::tuple<size_t, size_t, bool, torch::Tensor> Renderer::arg_check(
        std::to_string(percent_allowed_difference) + ").")
           .c_str());
   THArgCheck(max_n_hits > 0, 14, "max_n_hits must be > 0!");
-  THArgCheck(mode < 2, 15, "mode must be in {0, 1}.");
+  THArgCheck(mode < 3, 15, "mode must be in {0, 1, 2}.");
   torch::Tensor real_bg_col;
   if (bg_col.has_value()) {
     THArgCheck(

@@ -34,13 +34,15 @@ struct ClosestSphereTracker {
 
   IHD void track(
       const uint& sphere_idx,
+      const uint& draw_idx,
       const float& intersection_depth,
       const uint& coord_x,
       const uint& coord_y) {
     PULSAR_LOG_DEV_PIX(
         PULSAR_LOG_TRACKER_PIX,
-        "tracker|tracking sphere %u (depth: %f).\n",
+        "tracker|tracking sphere %u (draw_idx: %u; depth: %f).\n",
         sphere_idx,
+        draw_idx,
         intersection_depth);
     for (int i = IMIN(this->n_hits, n_track) - 1; i >= -1; --i) {
       if (i < 0 ||
@@ -57,9 +59,12 @@ struct ClosestSphereTracker {
                 this->closest_sphere_intersection_depths[j - 1];
             this->most_important_sphere_ids[j] =
                 this->most_important_sphere_ids[j - 1];
+            this->most_important_sphere_draw_ids[j] =
+                this->most_important_sphere_draw_ids[j - 1];
           }
           this->closest_sphere_intersection_depths[i + 1] = intersection_depth;
           this->most_important_sphere_ids[i + 1] = sphere_idx;
+          this->most_important_sphere_draw_ids[i + 1] = draw_idx;
         }
         break;
       }
@@ -120,6 +125,23 @@ struct ClosestSphereTracker {
     return this->closest_sphere_intersection_depths[idx];
   }
 
+  /**
+   * Get the draw_idx closest sphere draw_idx.
+   *
+   * For example, get_closest_sphere_draw_id(0) gives the overall closest
+   * sphere draw_idx.
+   *
+   * This method is implemented for highly optimized scenarios and will *not*
+   * perform an index check at runtime if assertions are disabled. idx must be
+   * >=0 and < IMIN(n_hits, n_track) for a valid result, if it is >=
+   * n_hits it will return -1.
+   */
+  IHD int get_closest_sphere_draw_id(const int& idx) {
+    PASSERT(idx >= 0 && idx < n_track);
+    return this->most_important_sphere_draw_ids[idx];
+  }
+
+
  private:
   /** The number of registered hits so far. */
   int n_hits;
@@ -130,6 +152,9 @@ struct ClosestSphereTracker {
   int most_important_sphere_ids[MAX_GRAD_SPHERES];
   /** The normalized depths of the closest n_track spheres. */
   float closest_sphere_intersection_depths[MAX_GRAD_SPHERES];
+  /** The sphere draw idxs of the n_track spheres with the highest color
+   * contribution. */
+  float most_important_sphere_draw_ids[MAX_GRAD_SPHERES];
 };
 
 } // namespace Renderer

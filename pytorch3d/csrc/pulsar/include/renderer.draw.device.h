@@ -35,6 +35,7 @@ INLINE DEVICE bool draw(
     const float2& projected_ray, /** The intersection of the ray with the image
                                     in pixel space. */
     /** Mode switches. */
+    const bool& hit_only, /** Whether to only examine the hit (no draw & grad). */
     const bool& draw_only, /** Whether we are in draw vs. grad mode. */
     const bool& calc_grad_pos, /** Calculate position gradients. */
     const bool& calc_grad_col, /** Calculate color gradients. */
@@ -267,6 +268,10 @@ INLINE DEVICE bool draw(
            intersection_depth <= center.z) ||
       intersection_depth >= draw_info.t_center - draw_info.radius &&
           intersection_depth <= draw_info.t_center);
+  if (hit_only) {
+    *intersection_depth_norm_out = intersection_depth;
+    return true;
+  }  
   /** Normalized distance of the closest intersection point; in [0., 1.]. */
   const float norm_dist =
       FMUL(FSUB(intersection_depth, cam.min_dist), cam.norm_fac);

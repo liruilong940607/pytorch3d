@@ -65,6 +65,7 @@ def cli():
         cam_params,
         1.0e-1,  # Renderer blending parameter gamma, in [1., 1e-5].
         45.0,  # Maximum depth.
+        mode=2,
     )
     LOGGER.info("Writing image to `%s`.", path.abspath("basic.png"))
     imageio.imsave("basic.png", (image.cpu().detach() * 255.0).to(torch.uint8).numpy())
