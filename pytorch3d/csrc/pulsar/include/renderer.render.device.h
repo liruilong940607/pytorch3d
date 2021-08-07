@@ -384,14 +384,14 @@ GLOBAL void render(
   else if (mode == 2u) {
     // Render with NeRF equation.
     float light_intensity = 1.f;
-    float t_prev = 1.f;  // nearest depth is 1.
+    float t_prev = 0.f;
     for (int i = 0; i < n_track; ++i) {
       float t = tracker.get_closest_sphere_depth(i);
       if (t == MAX_FLOAT) {
         continue;
       }
       uint draw_idx = tracker.get_closest_sphere_draw_id(i);
-      float delta_t = FABS(t_prev - t);
+      float delta_t = FABS(t - t_prev);
       float sigmoid = op_d == NULL ? MAX_FLOAT : op_d[sphere_id_l[draw_idx]];
       float att = FEXP(- delta_t * sigmoid);
       float weight = light_intensity * (1.f - att);
@@ -401,12 +401,14 @@ GLOBAL void render(
         PASSERT(isfinite(result[c_id]));
         result[c_id] = FMA(weight, col_ptr[c_id], result[c_id]);
       }
-
       PULSAR_LOG_DEV_PIX(
           PULSAR_LOG_NERF_PIX,
-          "render|nerf accum. i(%d), t(%.5f), sigmoid(%.5f), att(%.5f).\n",
-          i, t, sigmoid, att);
-          
+          "render|nerf accum. i(%d), t(%.5f), "
+          "sigmoid(%.5f), att(%.5f), alpha(%.5f), "
+          "T(%.5f), weight(%.5f).\n",
+          i, t, 
+          sigmoid, att, 1.f - att,
+          light_intensity, weight);   
       light_intensity *= att;
       t_prev = t;
     }

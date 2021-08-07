@@ -242,6 +242,10 @@ INLINE DEVICE bool draw(
     o__p1_ = FMIN(o__p1_, draw_info.t_center);
     // PASSERT(o__p1_ <= draw_info.t_center);
   }
+  if (hit_only) {
+    *intersection_depth_norm_out = o__p1_;
+    return true;
+  }  
   /** The distance from the closest point to the sphere center (p1)
    * to the closest intersection point (p2).
    *
@@ -268,10 +272,6 @@ INLINE DEVICE bool draw(
            intersection_depth <= center.z) ||
       intersection_depth >= draw_info.t_center - draw_info.radius &&
           intersection_depth <= draw_info.t_center);
-  if (hit_only) {
-    *intersection_depth_norm_out = intersection_depth;
-    return true;
-  }  
   /** Normalized distance of the closest intersection point; in [0., 1.]. */
   const float norm_dist =
       FMUL(FSUB(intersection_depth, cam.min_dist), cam.norm_fac);

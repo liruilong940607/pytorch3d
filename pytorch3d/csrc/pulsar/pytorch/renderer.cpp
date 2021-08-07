@@ -633,10 +633,15 @@ std::tuple<size_t, size_t, bool, torch::Tensor> Renderer::arg_check(
         (opacity.value() >= 0.f).all().item<bool>(),
         13,
         "opacity must be >= 0.");
-    THArgCheck(
-        (opacity.value() <= 1.f).all().item<bool>(),
-        13,
-        "opacity must be <= 1.");
+    if (mode <= 1) {
+      // For pulsar equation, the opacity is the "real" opacity.
+      // For NeRF equation (mode = 2), the opacity is the logit value range
+      // in [0, Inf).
+      THArgCheck(
+          (opacity.value() <= 1.f).all().item<bool>(),
+          13,
+          "opacity must be <= 1.");
+    }
   }
   LOG_IF(INFO, PULSAR_LOG_FORWARD || PULSAR_LOG_BACKWARD)
       << "  batch_size: " << batch_size;
