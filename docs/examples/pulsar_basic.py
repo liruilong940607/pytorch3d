@@ -65,7 +65,7 @@ def cli():
         cam_params,
         1.0e-1,  # Renderer blending parameter gamma, in [1., 1e-5].
         45.0,  # Maximum depth.
-        opacity=torch.ones_like(vert_rad) * 0.01,
+        opacity=torch.ones_like(vert_rad) * 0.02,
         mode=2,
     )
     LOGGER.info("Writing image to `%s`.", path.abspath("basic.png"))

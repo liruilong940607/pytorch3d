@@ -385,7 +385,7 @@ GLOBAL void render(
     // Render with NeRF equation.
     // https://arxiv.org/pdf/2003.08934.pdf
     float light_intensity = 1.f;
-    float t_prev = 0.f;
+    float t_prev = cam_norm.min_dist;
     for (int i = 0; i < n_track; ++i) {
       float t = tracker.get_closest_sphere_depth(i);
       if (t == MAX_FLOAT) {
@@ -413,6 +413,9 @@ GLOBAL void render(
       light_intensity *= att;
       t_prev = t;
     }
+    // background
+    for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)
+      result[c_id] = FMA(light_intensity, bg_col[c_id], result[c_id]);
   } else {
     float sm_d_normfac = FRCP(FMAX(sm_d, FEPS));
     for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)
