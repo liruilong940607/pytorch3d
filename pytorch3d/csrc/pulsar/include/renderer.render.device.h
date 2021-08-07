@@ -383,6 +383,7 @@ GLOBAL void render(
   }
   else if (mode == 2u) {
     // Render with NeRF equation.
+    // https://arxiv.org/pdf/2003.08934.pdf
     float light_intensity = 1.f;
     float t_prev = 0.f;
     for (int i = 0; i < n_track; ++i) {
