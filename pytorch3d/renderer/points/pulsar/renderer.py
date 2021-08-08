@@ -203,7 +203,7 @@ class _Render(torch.autograd.Function):
                 "This is probably not going to produce usable gradients."
             )
             GAMMA_WARNING_EMITTED = True
-        if ctx.mode == 0:
+        if ctx.mode == 0 or ctx.mode == 2:
             (
                 grad_pos,
                 grad_col,
@@ -248,7 +248,7 @@ class _Render(torch.autograd.Function):
         else:
             raise ValueError(
                 "Performing a backward pass for a "
-                "rendering with `mode != 0`! This is not possible."
+                "rendering with `mode != (0 or 2)`! This is not possible."
             )
         return (
             grad_pos,

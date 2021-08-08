@@ -19,6 +19,7 @@ template void backward<ISONDEVICE>(
     const float* vert_pos,
     const float* vert_col,
     const float* vert_rad,
+    const float* bg_col,
     const CamInfo& cam,
     const float& gamma,
     float percent_allowed_difference,

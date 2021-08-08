@@ -393,8 +393,8 @@ GLOBAL void render(
       }
       uint draw_idx = tracker.get_closest_sphere_draw_id(i);
       float delta_t = FABS(t - t_prev);
-      float sigmoid = op_d == NULL ? MAX_FLOAT : op_d[sphere_id_l[draw_idx]];
-      float att = FEXP(- delta_t * sigmoid);
+      float sigma = op_d == NULL ? MAX_FLOAT : op_d[sphere_id_l[draw_idx]];
+      float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
         cam_norm.n_channels > 3 ? di_l[draw_idx].color_union.ptr : &di_l[draw_idx].first_color;
@@ -405,10 +405,10 @@ GLOBAL void render(
       PULSAR_LOG_DEV_PIX(
           PULSAR_LOG_NERF_PIX,
           "render|nerf accum. i(%d), t(%.5f), "
-          "sigmoid(%.5f), att(%.5f), alpha(%.5f), "
+          "sigma(%.5f), att(%.5f), alpha(%.5f), "
           "T(%.5f), weight(%.5f).\n",
           i, t, 
-          sigmoid, att, 1.f - att,
+          sigma, att, 1.f - att,
           light_intensity, weight);   
       light_intensity *= att;
       t_prev = t;
@@ -416,6 +416,24 @@ GLOBAL void render(
     // background
     for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)
       result[c_id] = FMA(light_intensity, bg_col[c_id], result[c_id]);
+    // save tracker info for backward
+    int write_loc = (coord_y - cam_norm.film_border_top) * cam_norm.film_width *
+            (3 + 2 * n_track) +
+        (coord_x - cam_norm.film_border_left) * (3 + 2 * n_track);
+    for (int i = 0; i < n_track; ++i) {
+      int sphere_id = tracker.get_closest_sphere_id(i);
+      IASF(sphere_id, forw_info_d[write_loc + 3 + i * 2]);
+      forw_info_d[write_loc + 3 + i * 2 + 1] =
+          tracker.get_closest_sphere_depth(i) == MAX_FLOAT
+          ? -1.f
+          : tracker.get_closest_sphere_depth(i);
+      PULSAR_LOG_DEV_PIX(
+          PULSAR_LOG_RENDER_PIX,
+          "render|writing %d most important: id: %d, normalized depth: %f.\n",
+          i,
+          tracker.get_closest_sphere_id(i),
+          tracker.get_closest_sphere_depth(i));
+    }
   } else {
     float sm_d_normfac = FRCP(FMAX(sm_d, FEPS));
     for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)

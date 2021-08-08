@@ -19,6 +19,127 @@ namespace pulsar {
 namespace Renderer {
 
 template <bool DEV>
+GLOBAL void calc_gradients_nerf(
+    const CamInfo cam, /** Camera in world coordinates. */
+    float const* const RESTRICT grad_im, /** The gradient image. */
+    const float
+        gamma, /** The transparency parameter used in the forward pass. */
+    float3 const* const RESTRICT vert_poss, /** Vertex position vector. */
+    float const* const RESTRICT vert_cols, /** Vertex color vector. */
+    float const* const RESTRICT vert_rads, /** Vertex radius vector. */
+    float const* const RESTRICT opacity, /** Vertex opacity. */
+    const float* bg_col, /** bg colors. */
+    const uint num_balls, /** Number of balls. */
+    float const* const RESTRICT result_d, /** Result image. */
+    float const* const RESTRICT forw_info_d, /** Forward pass info. */
+    DrawInfo const* const RESTRICT di_d, /** Draw information. */
+    IntersectInfo const* const RESTRICT ii_d, /** Intersect information. */
+    // Mode switches.
+    const bool calc_grad_pos,
+    const bool calc_grad_col,
+    const bool calc_grad_rad,
+    const bool calc_grad_cam,
+    const bool calc_grad_opy,
+    // Out variables.
+    float* const RESTRICT grad_rad_d, /** Radius gradients. */
+    float* const RESTRICT grad_col_d, /** Color gradients. */
+    float3* const RESTRICT grad_pos_d, /** Position gradients. */
+    CamGradInfo* const RESTRICT grad_cam_buf_d, /** Camera gradient buffer. */
+    float* const RESTRICT grad_opy_d, /** Opacity gradient buffer. */
+    int* const RESTRICT
+        grad_contributed_d, /** Gradient contribution counter. */
+    // Infrastructure.
+    const int n_track,
+    const uint offs_x,
+    const uint offs_y /** Debug offsets. */
+) {
+  uint limit_x = cam.film_width, limit_y = cam.film_height;
+  if (offs_x != 0) {
+    // We're in debug mode.
+    limit_x = 1;
+    limit_y = 1;
+  }
+  GET_PARALLEL_IDS_2D(coord_x_base, coord_y_base, limit_x, limit_y);
+  // coord_x_base and coord_y_base are in the film coordinate system.
+  // We now need to translate to the aperture coordinate system. If
+  // the principal point was shifted left/up nothing has to be
+  // subtracted - only shift needs to be added in case it has been
+  // shifted down/right.
+  const uint film_coord_x = coord_x_base + offs_x;
+  const uint film_coord_y = coord_y_base + offs_y;
+  const float* grad_im_l = grad_im +
+      film_coord_y * cam.film_width * cam.n_channels +
+      film_coord_x * cam.n_channels;
+  // Set up shared infrastructure.
+  const int fwi_loc = film_coord_y * cam.film_width * (3 + 2 * n_track) +
+      film_coord_x * (3 + 2 * n_track);
+  // Start processing. 
+  // PASS 1
+  float accum = 0.f;
+  float light_intensity = 1.f;
+  float t_prev = cam.min_dist;
+  for (int grad_idx = 0; grad_idx < n_track; ++grad_idx) {
+    int sphere_idx;
+    FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx], sphere_idx);
+    PASSERT(
+        sphere_idx == -1 ||
+        sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
+    float t; // sphere depth
+    FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
+    float total_color = 0.f;
+    if (sphere_idx >= 0) {
+      float delta_t = FABS(t - t_prev);
+      float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
+      float att = FEXP(- delta_t * sigma);
+      float weight = light_intensity * (1.f - att);
+      float const* const col_ptr =
+        cam.n_channels > 3 ? di_d[sphere_idx].color_union.ptr : &di_d[sphere_idx].first_color;
+      for (uint c_id = 0; c_id < cam.n_channels; ++c_id) {
+        total_color += col_ptr[c_id] * grad_im_l[c_id];
+        ATOMICADD(
+            &(grad_col_d[sphere_idx + sphere_idx * cam.n_channels + c_id]),
+            weight * grad_im_l[c_id]);
+      }
+      light_intensity *= att;
+      accum += weight * total_color;
+    }
+  }
+  float total_bg = 0.f;
+  for (uint c_id = 0; c_id < cam.n_channels; ++c_id) {
+    total_bg += bg_col[c_id] * grad_im_l[c_id];
+  }
+  accum += light_intensity * total_bg;
+  // PASS 2
+  for (int grad_idx = 0; grad_idx < n_track; ++grad_idx) {
+    int sphere_idx;
+    FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx], sphere_idx);
+    PASSERT(
+        sphere_idx == -1 ||
+        sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
+    float t; // sphere depth
+    FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
+    float total_color = 0.f;
+    if (sphere_idx >= 0) {
+      float delta_t = FABS(t - t_prev);
+      float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
+      float att = FEXP(- delta_t * sigma);
+      float weight = light_intensity * (1.f - att);
+      float const* const col_ptr =
+        cam.n_channels > 3 ? di_d[sphere_idx].color_union.ptr : &di_d[sphere_idx].first_color;
+      for (uint c_id = 0; c_id < cam.n_channels; ++c_id) {
+        total_color += col_ptr[c_id] * grad_im_l[c_id];
+      }
+      light_intensity *= att;
+      accum -= weight * total_color;
+      float grad_opy = delta_t * (total_color * light_intensity - accum);
+      ATOMICADD(&(grad_opy_d[sphere_idx]), grad_opy);
+    }
+  }
+  END_PARALLEL_2D_NORET();
+};
+
+
+template <bool DEV>
 GLOBAL void calc_gradients(
     const CamInfo cam, /** Camera in world coordinates. */
     float const* const RESTRICT grad_im, /** The gradient image. */

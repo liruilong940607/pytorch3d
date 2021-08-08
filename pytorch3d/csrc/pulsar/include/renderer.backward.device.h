@@ -25,6 +25,7 @@ void backward(
     const float* vert_pos,
     const float* vert_col,
     const float* vert_rad,
+    const float* bg_col,
     const CamInfo& cam,
     const float& gamma,
     float percent_allowed_difference,
@@ -106,65 +107,109 @@ void backward(
   MEMSET(self->grad_cam_buf_d, 0, CamGradInfo, num_balls, stream);
   MEMSET(self->grad_opy_d, 0, float, num_balls, stream);
   MEMSET(self->ids_sorted_d, 0, int, num_balls, stream);
-  LAUNCH_PARALLEL_2D(
-      calc_gradients<DEV>,
-      self->cam.film_width,
-      self->cam.film_height,
-      GRAD_BLOCK_SIZE,
-      GRAD_BLOCK_SIZE,
-      stream,
-      self->cam,
-      grad_im,
-      gamma,
-      reinterpret_cast<const float3*>(vert_pos),
-      vert_col,
-      vert_rad,
-      vert_opy_d,
-      num_balls,
-      image,
-      forw_info,
-      self->di_d,
-      self->ii_d,
-      dif_pos,
-      dif_col,
-      dif_rad,
-      dif_cam,
-      dif_opy,
-      self->grad_rad_d,
-      self->grad_col_d,
-      self->grad_pos_d,
-      self->grad_cam_buf_d,
-      self->grad_opy_d,
-      self->ids_sorted_d,
-      self->n_track);
+  if (mode == 2u) {
+    // Backward the NeRF equation.
+    LAUNCH_PARALLEL_2D(
+        calc_gradients_nerf<DEV>,
+        self->cam.film_width,
+        self->cam.film_height,
+        GRAD_BLOCK_SIZE,
+        GRAD_BLOCK_SIZE,
+        stream,
+        self->cam,
+        grad_im,
+        gamma,
+        reinterpret_cast<const float3*>(vert_pos),
+        vert_col,
+        vert_rad,
+        vert_opy_d,
+        bg_col,
+        num_balls,
+        image,
+        forw_info,
+        self->di_d,
+        self->ii_d,
+        dif_pos,
+        dif_col,
+        dif_rad,
+        dif_cam,
+        dif_opy,
+        self->grad_rad_d,
+        self->grad_col_d,
+        self->grad_pos_d,
+        self->grad_cam_buf_d,
+        self->grad_opy_d,
+        self->ids_sorted_d,
+        self->n_track);
+  }
+  else {
+    // Backward the Pulsar equation.
+    LAUNCH_PARALLEL_2D(
+        calc_gradients<DEV>,
+        self->cam.film_width,
+        self->cam.film_height,
+        GRAD_BLOCK_SIZE,
+        GRAD_BLOCK_SIZE,
+        stream,
+        self->cam,
+        grad_im,
+        gamma,
+        reinterpret_cast<const float3*>(vert_pos),
+        vert_col,
+        vert_rad,
+        vert_opy_d,
+        num_balls,
+        image,
+        forw_info,
+        self->di_d,
+        self->ii_d,
+        dif_pos,
+        dif_col,
+        dif_rad,
+        dif_cam,
+        dif_opy,
+        self->grad_rad_d,
+        self->grad_col_d,
+        self->grad_pos_d,
+        self->grad_cam_buf_d,
+        self->grad_opy_d,
+        self->ids_sorted_d,
+        self->n_track);
+  }
   CHECKLAUNCH();
 #ifdef PULSAR_TIMINGS_ENABLED
   STOP_TIME(calc_gradients);
   START_TIME(normalize);
 #endif
-  LAUNCH_MAX_PARALLEL_1D(
-      norm_sphere_gradients<DEV>, num_balls, stream, *self, num_balls);
-  CHECKLAUNCH();
-  if (dif_cam) {
-    SUM_WS(
-        self->grad_cam_buf_d,
-        reinterpret_cast<CamGradInfo*>(self->grad_cam_d),
-        static_cast<int>(num_balls),
-        self->workspace_d,
-        self->workspace_size,
-        stream);
-    CHECKLAUNCH();
-    SUM_WS(
-        (IntWrapper*)(self->ids_sorted_d),
-        (IntWrapper*)(self->n_grad_contributions_d),
-        static_cast<int>(num_balls),
-        self->workspace_d,
-        self->workspace_size,
-        stream);
-    CHECKLAUNCH();
+  if (mode == 2u) {
+    // Don't do gradients normalization & camera gradients for
+    // NeRF equation backward.
+  }
+  else {
     LAUNCH_MAX_PARALLEL_1D(
-        norm_cam_gradients<DEV>, static_cast<int64_t>(1), stream, *self);
+        norm_sphere_gradients<DEV>, num_balls, stream, *self, num_balls);
     CHECKLAUNCH();
+    if (dif_cam) {
+      SUM_WS(
+          self->grad_cam_buf_d,
+          reinterpret_cast<CamGradInfo*>(self->grad_cam_d),
+          static_cast<int>(num_balls),
+          self->workspace_d,
+          self->workspace_size,
+          stream);
+      CHECKLAUNCH();
+      SUM_WS(
+          (IntWrapper*)(self->ids_sorted_d),
+          (IntWrapper*)(self->n_grad_contributions_d),
+          static_cast<int>(num_balls),
+          self->workspace_d,
+          self->workspace_size,
+          stream);
+      CHECKLAUNCH();
+      LAUNCH_MAX_PARALLEL_1D(
+          norm_cam_gradients<DEV>, static_cast<int64_t>(1), stream, *self);
+      CHECKLAUNCH();
+    }
   }
 #ifdef PULSAR_TIMINGS_ENABLED
   STOP_TIME(normalize);

@@ -41,7 +41,7 @@ def cli():
     vert_pos = torch.rand(n_points, 3, dtype=torch.float32, device=device) * 10.0
     vert_pos[:, 2] += 25.0
     vert_pos[:, :2] -= 5.0
-    vert_col = torch.rand(n_points, 3, dtype=torch.float32, device=device)
+    vert_col = torch.rand(n_points, 3, dtype=torch.float32, device=device, requires_grad=True)
     vert_rad = torch.rand(n_points, dtype=torch.float32, device=device)
     cam_params = torch.tensor(
         [
@@ -68,6 +68,7 @@ def cli():
         opacity=torch.ones_like(vert_rad) * 0.02,
         mode=2,
     )
+    image.sum().backward()
     LOGGER.info("Writing image to `%s`.", path.abspath("basic.png"))
     imageio.imsave("basic.png", (image.cpu().detach() * 255.0).to(torch.uint8).numpy())
     LOGGER.info("Done.")
