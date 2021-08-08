@@ -143,7 +143,7 @@ class _Render(torch.autograd.Function):
             max_n_hits,
             mode,
         )
-        if mode != 0:
+        if mode != 0 and mode != 2:
             # Backprop not possible!
             info = None
         # Prepare for backprop.

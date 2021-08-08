@@ -28,7 +28,7 @@ GLOBAL void calc_gradients_nerf(
     float const* const RESTRICT vert_cols, /** Vertex color vector. */
     float const* const RESTRICT vert_rads, /** Vertex radius vector. */
     float const* const RESTRICT opacity, /** Vertex opacity. */
-    const float* bg_col, /** bg colors. */
+    float const* const RESTRICT bg_col, /** bg colors. */
     const uint num_balls, /** Number of balls. */
     float const* const RESTRICT result_d, /** Result image. */
     float const* const RESTRICT forw_info_d, /** Forward pass info. */
