@@ -420,6 +420,7 @@ GLOBAL void render(
     int write_loc = (coord_y - cam_norm.film_border_top) * cam_norm.film_width *
             (3 + 2 * n_track) +
         (coord_x - cam_norm.film_border_left) * (3 + 2 * n_track);
+    forw_info_d[write_loc + 1] = 1.0;  // for fill_bg check
     for (int i = 0; i < n_track; ++i) {
       int sphere_id = tracker.get_closest_sphere_id(i);
       IASF(sphere_id, forw_info_d[write_loc + 3 + i * 2]);

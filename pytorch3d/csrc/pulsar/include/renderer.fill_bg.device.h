@@ -31,11 +31,16 @@ GLOBAL void fill_bg(
       == 0.f) {
     // This location has not been processed yet.
     // Write first the forw_info:
-    // sm_m
-    renderer.forw_info_d[write_loc] =
-        cam.background_normalization_depth / gamma;
-    // sm_d
-    renderer.forw_info_d[write_loc + 1] = 1.f;
+    if (mode == 2) {
+      // NeRF rendering don't need the sm_m and sm_d
+    }
+    else {
+      // sm_m
+      renderer.forw_info_d[write_loc] =
+          cam.background_normalization_depth / gamma;
+      // sm_d
+      renderer.forw_info_d[write_loc + 1] = 1.f;
+    }
     // max_closest_possible_intersection_hit
     renderer.forw_info_d[write_loc + 2] = -1.f;
     // sphere IDs and intersection depths.
@@ -44,7 +49,7 @@ GLOBAL void fill_bg(
       IASF(sphere_id, renderer.forw_info_d[write_loc + 3 + i * 2]);
       renderer.forw_info_d[write_loc + 3 + i * 2 + 1] = -1.f;
     }
-    if (mode == 0) {
+    if (mode == 0 or mode == 2) {
       // Image background.
       for (int i = 0; i < cam.n_channels; ++i) {
         renderer.result_d

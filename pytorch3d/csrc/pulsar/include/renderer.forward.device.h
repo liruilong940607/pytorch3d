@@ -263,7 +263,7 @@ void forward(
       }
     }
   }
-  if (mode == 0) {
+  if (mode == 0 || mode == 2) {
     LAUNCH_MAX_PARALLEL_2D(
         fill_bg<DEV>,
         static_cast<int64_t>(self->cam.film_width),
