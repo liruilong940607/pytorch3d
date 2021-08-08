@@ -9,7 +9,7 @@
 #ifndef PULSAR_LOGGING_H_
 #define PULSAR_LOGGING_H_
 
-#define PULSAR_LOGGING_ENABLED
+// #define PULSAR_LOGGING_ENABLED
 /**
  * Enable detailed per-operation timings.
  *
@@ -55,7 +55,7 @@
 #define PULSAR_LOG_NORMALIZE false
 #define PULSAR_LOG_NORMALIZE_X 0
 #define PULSAR_LOG_NORMALIZE_ALL false
-#define PULSAR_LOG_NERF_PIX true
+#define PULSAR_LOG_NERF_PIX false
 #define PULSAR_LOG_NERF_PIX_X 700
 #define PULSAR_LOG_NERF_PIX_Y 280
 #define PULSAR_LOG_NERF_PIX_ALL false

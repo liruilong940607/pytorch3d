@@ -52,7 +52,7 @@ class SceneModel(nn.Module):
         vert_pos = torch.rand(N_POINTS, 3, dtype=torch.float32) * 10.0
         vert_pos[:, 2] += 25.0
         vert_pos[:, :2] -= 5.0
-        self.register_parameter("vert_pos", nn.Parameter(vert_pos, requires_grad=True))
+        self.register_parameter("vert_pos", nn.Parameter(vert_pos, requires_grad=False))
         self.register_parameter(
             "vert_col",
             nn.Parameter(
@@ -61,6 +61,12 @@ class SceneModel(nn.Module):
         )
         self.register_parameter(
             "vert_rad",
+            nn.Parameter(
+                torch.ones(N_POINTS, dtype=torch.float32) * 0.3, requires_grad=False
+            ),
+        )
+        self.register_parameter(
+            "opacity",
             nn.Parameter(
                 torch.ones(N_POINTS, dtype=torch.float32) * 0.3, requires_grad=True
             ),
@@ -85,7 +91,9 @@ class SceneModel(nn.Module):
             self.cam_params,
             self.gamma,
             45.0,
+            opacity=torch.nn.functional. softplus(self.opacity),
             return_forward_info=True,
+            mode=2,
         )
 
 
@@ -108,9 +116,10 @@ def cli():
     # Optimizer.
     optimizer = optim.SGD(
         [
-            {"params": [model.vert_col], "lr": 1e0},
-            {"params": [model.vert_rad], "lr": 5e-3},
-            {"params": [model.vert_pos], "lr": 1e-2},
+            {"params": [model.vert_col], "lr": 1e-3},
+            # {"params": [model.vert_rad], "lr": 5e-3},
+            # {"params": [model.vert_pos], "lr": 1e-2},
+            {"params": [model.opacity], "lr": 1e-3},
         ]
     )
     LOGGER.info("Optimizing...")
