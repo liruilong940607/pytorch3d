@@ -84,24 +84,25 @@ GLOBAL void calc_gradients_nerf(
     PASSERT(
         sphere_idx == -1 ||
         sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
-    float t; // sphere depth
-    FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
-    float total_color = 0.f;
     if (sphere_idx >= 0) {
+      float t; // sphere depth
+      FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
       float delta_t = FABS(t - t_prev);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
         cam.n_channels > 3 ? di_d[sphere_idx].color_union.ptr : &di_d[sphere_idx].first_color;
+      float total_color = 0.f;
       for (uint c_id = 0; c_id < cam.n_channels; ++c_id) {
         total_color += col_ptr[c_id] * grad_im_l[c_id];
         ATOMICADD(
-            &(grad_col_d[sphere_idx + sphere_idx * cam.n_channels + c_id]),
+            &(grad_col_d[sphere_idx * cam.n_channels + c_id]),
             weight * grad_im_l[c_id]);
       }
       light_intensity *= att;
       accum += weight * total_color;
+      t_prev = t;
     }
   }
   float total_bg = 0.f;
@@ -116,16 +117,16 @@ GLOBAL void calc_gradients_nerf(
     PASSERT(
         sphere_idx == -1 ||
         sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
-    float t; // sphere depth
-    FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
-    float total_color = 0.f;
     if (sphere_idx >= 0) {
+      float t; // sphere depth
+      FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
       float delta_t = FABS(t - t_prev);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
         cam.n_channels > 3 ? di_d[sphere_idx].color_union.ptr : &di_d[sphere_idx].first_color;
+      float total_color = 0.f;
       for (uint c_id = 0; c_id < cam.n_channels; ++c_id) {
         total_color += col_ptr[c_id] * grad_im_l[c_id];
       }
@@ -133,6 +134,7 @@ GLOBAL void calc_gradients_nerf(
       accum -= weight * total_color;
       float grad_opy = delta_t * (total_color * light_intensity - accum);
       ATOMICADD(&(grad_opy_d[sphere_idx]), grad_opy);
+      t_prev = t;
     }
   }
   END_PARALLEL_2D_NORET();
