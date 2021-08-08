@@ -25,7 +25,7 @@ from torch import nn, optim
 
 
 LOGGER = logging.getLogger(__name__)
-N_POINTS = 100_000
+N_POINTS = 200_000
 WIDTH = 500
 HEIGHT = 500
 DEVICE = torch.device("cuda")
@@ -62,13 +62,13 @@ class SceneModel(nn.Module):
         self.register_parameter(
             "vert_rad",
             nn.Parameter(
-                torch.ones(N_POINTS, dtype=torch.float32) * 0.05, requires_grad=False
+                torch.ones(N_POINTS, dtype=torch.float32) * 0.1, requires_grad=False
             ),
         )
         self.register_parameter(
             "opacity",
             nn.Parameter(
-                torch.ones(N_POINTS, dtype=torch.float32) * 0.3, requires_grad=True
+                torch.ones(N_POINTS, dtype=torch.float32) * 1e19, requires_grad=True
             ),
         )
         self.register_buffer(
@@ -91,9 +91,9 @@ class SceneModel(nn.Module):
             self.cam_params,
             self.gamma,
             45.0,
-            opacity=torch.nn.functional. softplus(self.opacity),
-            return_forward_info=True,
+            # opacity=torch.nn.functional.softplus(self.opacity),
             mode=2,
+            return_forward_info=True,
         )
 
 
@@ -119,10 +119,10 @@ def cli():
     # Optimizer.
     optimizer = optim.SGD(
         [
-            {"params": [model.vert_col], "lr": 1e-2},
+            {"params": [model.vert_col], "lr": 1e-4},
             # {"params": [model.vert_rad], "lr": 5e-3},
             # {"params": [model.vert_pos], "lr": 1e-2},
-            {"params": [model.opacity], "lr": 1e-2},
+            # {"params": [model.opacity], "lr": 1e29},
         ]
     )
     LOGGER.info("Optimizing...")
@@ -155,7 +155,14 @@ def cli():
         loss = ((result - ref) ** 2).sum()
         LOGGER.info("loss %d: %f", i, loss.item())
         loss.backward()
+        print (
+            "python grad:", 
+            model.vert_col[167807], 
+            model.vert_col.grad[167807]
+        )
         optimizer.step()
+        # print (result_info[50, 375][4::2].long())
+        # exit()
         # Cleanup.
         with torch.no_grad():
             model.vert_col.data = torch.clamp(model.vert_col.data, 0.0, 1.0)

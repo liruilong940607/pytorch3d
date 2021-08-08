@@ -388,28 +388,32 @@ GLOBAL void render(
     float t_prev = cam_norm.min_dist;
     for (int i = 0; i < n_track; ++i) {
       float t = tracker.get_closest_sphere_depth(i);
-      if (t == MAX_FLOAT) {
+      uint sphere_id =  tracker.get_closest_sphere_id(i);
+      if (t == MAX_FLOAT || sphere_id == -1 || t < cam_norm.min_dist) {
         continue;
       }
-      uint draw_idx = tracker.get_closest_sphere_draw_id(i);
       float delta_t = FABS(t - t_prev);
-      float sigma = op_d == NULL ? MAX_FLOAT : op_d[sphere_id_l[draw_idx]];
+      float sigma = op_d == NULL ? MAX_FLOAT : op_d[sphere_id];
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
-        cam_norm.n_channels > 3 ? di_l[draw_idx].color_union.ptr : &di_l[draw_idx].first_color;
+        cam_norm.n_channels > 3 ? di_d[sphere_id].color_union.ptr : &di_d[sphere_id].first_color;
       for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id) {
         PASSERT(isfinite(result[c_id]));
         result[c_id] = FMA(weight, col_ptr[c_id], result[c_id]);
       }
       PULSAR_LOG_DEV_PIX(
           PULSAR_LOG_NERF_PIX,
-          "render|nerf accum. i(%d), t(%.5f), "
+          "render|nerf accum. i(%d), sphere_id(%d), t(%.5f), "
           "sigma(%.5f), att(%.5f), alpha(%.5f), "
-          "T(%.5f), weight(%.5f).\n",
-          i, t, 
+          "T(%.5f), weight(%.5f), "
+          "result(%.5f, %.5f, %.5f), "
+          "col_ptr(%.5f, %.5f, %.5f) \n",
+          i, sphere_id, t, 
           sigma, att, 1.f - att,
-          light_intensity, weight);   
+          light_intensity, weight,
+          result[0], result[1], result[2],
+          col_ptr[0], col_ptr[1], col_ptr[2]);
       light_intensity *= att;
       t_prev = t;
     }

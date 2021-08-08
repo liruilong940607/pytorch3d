@@ -111,7 +111,7 @@ class _Render(torch.autograd.Function):
         mode=0,
         return_forward_info=False,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        if mode != 0:
+        if mode not in [0, 2]:
             assert not return_forward_info, (
                 "You are using a non-standard rendering mode. This does "
                 "not provide gradients, and also no `forward_info`. Please "
@@ -143,7 +143,7 @@ class _Render(torch.autograd.Function):
             max_n_hits,
             mode,
         )
-        if mode != 0 and mode != 2:
+        if mode not in [0, 2]:
             # Backprop not possible!
             info = None
         # Prepare for backprop.
@@ -692,9 +692,9 @@ class Renderer(torch.nn.Module):
             percent_allowed_difference,
             max_n_hits,
             mode,
-            (mode == 0) and return_forward_info,
+            (mode in [0, 2]) and return_forward_info,
         )
-        if return_forward_info and mode != 0:
+        if return_forward_info and mode not in [0, 2]:
             return ret_res, None
         return ret_res
 

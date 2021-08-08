@@ -9,7 +9,7 @@
 #ifndef PULSAR_LOGGING_H_
 #define PULSAR_LOGGING_H_
 
-// #define PULSAR_LOGGING_ENABLED
+#define PULSAR_LOGGING_ENABLED
 /**
  * Enable detailed per-operation timings.
  *
@@ -48,16 +48,16 @@
 #define PULSAR_LOG_DRAW_PIX_Y 669
 #define PULSAR_LOG_DRAW_PIX_ALL false
 #define PULSAR_LOG_BACKWARD false
-#define PULSAR_LOG_GRAD false
-#define PULSAR_LOG_GRAD_X 509
-#define PULSAR_LOG_GRAD_Y 489
+#define PULSAR_LOG_GRAD true
+#define PULSAR_LOG_GRAD_X 375
+#define PULSAR_LOG_GRAD_Y 50
 #define PULSAR_LOG_GRAD_ALL false
 #define PULSAR_LOG_NORMALIZE false
 #define PULSAR_LOG_NORMALIZE_X 0
 #define PULSAR_LOG_NORMALIZE_ALL false
-#define PULSAR_LOG_NERF_PIX false
-#define PULSAR_LOG_NERF_PIX_X 700
-#define PULSAR_LOG_NERF_PIX_Y 280
+#define PULSAR_LOG_NERF_PIX true
+#define PULSAR_LOG_NERF_PIX_X 375
+#define PULSAR_LOG_NERF_PIX_Y 50
 #define PULSAR_LOG_NERF_PIX_ALL false
 
 #define PULSAR_LOG_DEV(ID, ...) \

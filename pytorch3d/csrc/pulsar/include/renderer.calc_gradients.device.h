@@ -66,7 +66,14 @@ GLOBAL void calc_gradients_nerf(
   // subtracted - only shift needs to be added in case it has been
   // shifted down/right.
   const uint film_coord_x = coord_x_base + offs_x;
+  const uint ap_coord_x = film_coord_x +
+      2 * static_cast<uint>(std::max(0, cam.principal_point_offset_x));
   const uint film_coord_y = coord_y_base + offs_y;
+  const uint ap_coord_y = film_coord_y +
+      2 * static_cast<uint>(std::max(0, cam.principal_point_offset_y));
+  float* result = const_cast<float*>(
+      result_d + film_coord_y * cam.film_width * cam.n_channels +
+      film_coord_x * cam.n_channels);
   const float* grad_im_l = grad_im +
       film_coord_y * cam.film_width * cam.n_channels +
       film_coord_x * cam.n_channels;
@@ -85,9 +92,8 @@ GLOBAL void calc_gradients_nerf(
     PASSERT(
         sphere_idx == -1 ||
         sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
-    if (sphere_idx >= 0) {
-      float t; // sphere depth
-      FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
+    float t = forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1]; // sphere depth
+    if (sphere_idx >= 0 || t >= cam.min_dist) {
       float delta_t = FABS(t - t_prev);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
       float att = FEXP(- delta_t * sigma);
@@ -101,6 +107,18 @@ GLOBAL void calc_gradients_nerf(
             &(grad_col_d[sphere_idx * cam.n_channels + c_id]),
             weight * grad_im_l[c_id]);
       }
+      PULSAR_LOG_DEV_APIX(
+          PULSAR_LOG_GRAD,
+          "grad|nerf color. grad_idx(%d), sphere_idx(%d), t(%.5f), "
+          "sigma(%.5f), att(%.5f), alpha(%.5f), "
+          "T(%.5f), weight(%.5f), "
+          "result(%.5f, %.5f, %.5f), "
+          "grad_im(%.5f, %.5f, %.5f) \n",
+          grad_idx, sphere_idx, t, 
+          sigma, att, 1.f - att,
+          light_intensity, weight,
+          result[0], result[1], result[2],
+          grad_im_l[0], grad_im_l[1], grad_im_l[2]);   
       light_intensity *= att;
       accum += weight * total_color;
       t_prev = t;
@@ -121,8 +139,7 @@ GLOBAL void calc_gradients_nerf(
         sphere_idx == -1 ||
         sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
     if (sphere_idx >= 0) {
-      float t; // sphere depth
-      FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1], t);
+      float t = forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1]; // sphere depth
       float delta_t = FABS(t - t_prev);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
       float att = FEXP(- delta_t * sigma);
