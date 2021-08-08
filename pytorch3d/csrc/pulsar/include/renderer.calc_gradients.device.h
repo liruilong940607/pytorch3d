@@ -74,10 +74,11 @@ GLOBAL void calc_gradients_nerf(
   const int fwi_loc = film_coord_y * cam.film_width * (3 + 2 * n_track) +
       film_coord_x * (3 + 2 * n_track);
   // Start processing. 
-  // PASS 1
   float accum = 0.f;
-  float light_intensity = 1.f;
-  float t_prev = cam.min_dist;
+  float light_intensity, t_prev;
+  // PASS 1
+  light_intensity = 1.f;
+  t_prev = cam.min_dist;
   for (int grad_idx = 0; grad_idx < n_track; ++grad_idx) {
     int sphere_idx;
     FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx], sphere_idx);
@@ -111,6 +112,8 @@ GLOBAL void calc_gradients_nerf(
   }
   accum += light_intensity * total_bg;
   // PASS 2
+  light_intensity = 1.f;
+  t_prev = cam.min_dist;
   for (int grad_idx = 0; grad_idx < n_track; ++grad_idx) {
     int sphere_idx;
     FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx], sphere_idx);

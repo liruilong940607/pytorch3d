@@ -25,9 +25,9 @@ from torch import nn, optim
 
 
 LOGGER = logging.getLogger(__name__)
-N_POINTS = 10_000
-WIDTH = 1_000
-HEIGHT = 1_000
+N_POINTS = 100_000
+WIDTH = 500
+HEIGHT = 500
 DEVICE = torch.device("cuda")
 
 
@@ -62,7 +62,7 @@ class SceneModel(nn.Module):
         self.register_parameter(
             "vert_rad",
             nn.Parameter(
-                torch.ones(N_POINTS, dtype=torch.float32) * 0.3, requires_grad=False
+                torch.ones(N_POINTS, dtype=torch.float32) * 0.05, requires_grad=False
             ),
         )
         self.register_parameter(
@@ -80,7 +80,7 @@ class SceneModel(nn.Module):
         # The volumetric optimization works better with a higher number of tracked
         # intersections per ray.
         self.renderer = Renderer(
-            WIDTH, HEIGHT, N_POINTS, n_track=32, right_handed_system=True
+            WIDTH, HEIGHT, N_POINTS, n_track=128, right_handed_system=True
         )
 
     def forward(self):
@@ -105,8 +105,11 @@ def cli():
     # Load reference.
     ref = (
         torch.from_numpy(
-            imageio.imread(
-                "../../tests/pulsar/reference/examples_TestRenderer_test_smallopt.png"
+            cv2.resize(
+                imageio.imread(
+                    "../../tests/pulsar/reference/examples_TestRenderer_test_smallopt.png"
+                ),
+                (WIDTH, HEIGHT),
             )[:, ::-1, :].copy()
         ).to(torch.float32)
         / 255.0
@@ -116,10 +119,10 @@ def cli():
     # Optimizer.
     optimizer = optim.SGD(
         [
-            {"params": [model.vert_col], "lr": 1e-3},
+            {"params": [model.vert_col], "lr": 1e-2},
             # {"params": [model.vert_rad], "lr": 5e-3},
             # {"params": [model.vert_pos], "lr": 1e-2},
-            {"params": [model.opacity], "lr": 1e-3},
+            {"params": [model.opacity], "lr": 1e-2},
         ]
     )
     LOGGER.info("Optimizing...")

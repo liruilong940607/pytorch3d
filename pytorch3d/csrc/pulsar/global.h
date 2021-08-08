@@ -21,7 +21,7 @@
 
 #include "./logging.h" // <- include before torch/extension.h
 
-#define MAX_GRAD_SPHERES 128
+#define MAX_GRAD_SPHERES 512
 
 #ifdef __CUDACC__
 #define INLINE __forceinline__
