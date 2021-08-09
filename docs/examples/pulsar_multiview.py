@@ -31,9 +31,9 @@ from torch import nn, optim
 
 
 LOGGER = logging.getLogger(__name__)
-N_POINTS = 400_000
-WIDTH = 1_000
-HEIGHT = 1_000
+N_POINTS = 1_000_000
+WIDTH = 500
+HEIGHT = 500
 VISUALIZE_IDS = [0, 1]
 DEVICE = torch.device("cuda")
 
@@ -61,18 +61,18 @@ class SceneModel(nn.Module):
         vert_pos = torch.rand((1, N_POINTS, 3), dtype=torch.float32) * 10.0
         vert_pos[:, :, 2] += 25.0
         vert_pos[:, :, :2] -= 5.0
-        self.register_parameter("vert_pos", nn.Parameter(vert_pos, requires_grad=True))
+        self.register_parameter("vert_pos", nn.Parameter(vert_pos, requires_grad=False))
         self.register_parameter(
             "vert_col",
             nn.Parameter(
-                torch.ones(1, N_POINTS, 3, dtype=torch.float32) * 0.5,
+                torch.ones(1, N_POINTS, 3, dtype=torch.float32) * 0.,
                 requires_grad=True,
             ),
         )
         self.register_parameter(
             "vert_rad",
             nn.Parameter(
-                torch.ones(1, N_POINTS, dtype=torch.float32) * 0.05, requires_grad=True
+                torch.ones(1, N_POINTS, dtype=torch.float32) * 0.01, requires_grad=False
             ),
         )
         self.register_parameter(
@@ -110,12 +110,15 @@ class SceneModel(nn.Module):
             n_views = 1
         return self.renderer.forward(
             self.vert_pos.expand(n_views, -1, -1),
-            self.vert_col.expand(n_views, -1, -1),
+            torch.sigmoid(self.vert_col.expand(n_views, -1, -1)),
             self.vert_rad.expand(n_views, -1),
             cam,
             self.gamma,
             45.0,
-        )
+            opacity=torch.nn.functional.softplus(self.vert_opy.expand(n_views, -1)),
+            mode=2,
+            return_forward_info=True,
+        )[0]
 
 
 def cli():
@@ -132,9 +135,12 @@ def cli():
     ref = torch.stack(
         [
             torch.from_numpy(
-                imageio.imread(
-                    "../../tests/pulsar/reference/examples_TestRenderer_test_multiview_%d.png"
-                    % idx
+                cv2.resize(
+                    imageio.imread(
+                        "../../tests/pulsar/reference/examples_TestRenderer_test_multiview_%d.png"
+                        % idx
+                    ),
+                    (WIDTH, HEIGHT),
                 )
             ).to(torch.float32)
             / 255.0
@@ -146,9 +152,10 @@ def cli():
     # Optimizer.
     optimizer = optim.SGD(
         [
-            {"params": [model.vert_col], "lr": 1e-1},
-            {"params": [model.vert_rad], "lr": 1e-3},
-            {"params": [model.vert_pos], "lr": 1e-3},
+            {"params": [model.vert_col], "lr": 1.0},
+            # {"params": [model.vert_rad], "lr": 1e-3},
+            # {"params": [model.vert_pos], "lr": 1e-3},
+            {"params": [model.vert_opy], "lr": 1.0},
         ]
     )
 
@@ -158,12 +165,14 @@ def cli():
     writer = imageio.get_writer("multiview.gif", format="gif", fps=25)
 
     # Optimize.
-    for i in range(300):
+    for i in range(3000):
         optimizer.zero_grad()
         result = model()
+        print (result.min(), result.max())
         # Visualize.
         result_im = (result.cpu().detach().numpy() * 255).astype(np.uint8)
-        cv2.imshow("opt", result_im[0, :, :, ::-1])
+        for i in range(result.shape[0]):
+            cv2.imshow("opt_%d" % i, result_im[i, :, :, ::-1])
         overlay_img = np.ascontiguousarray(
             ((result * 0.5 + ref * 0.5).cpu().detach().numpy() * 255).astype(np.uint8)[
                 0, :, :, ::-1
@@ -186,19 +195,21 @@ def cli():
         loss = ((result - ref) ** 2).sum()
         LOGGER.info("loss %d: %f", i, loss.item())
         loss.backward()
+        LOGGER.info("grad opacity: %.9f", model.vert_opy.grad.abs().mean().item())
+        LOGGER.info("grad color: %.9f", model.vert_col.grad.abs().mean().item())
         optimizer.step()
-        # Cleanup.
-        with torch.no_grad():
-            model.vert_col.data = torch.clamp(model.vert_col.data, 0.0, 1.0)
-            # Remove points.
-            model.vert_pos.data[model.vert_rad < 0.001, :] = -1000.0
-            model.vert_rad.data[model.vert_rad < 0.001] = 0.0001
-            vd = (
-                (model.vert_col - torch.ones(1, 1, 3, dtype=torch.float32).to(DEVICE))
-                .abs()
-                .sum(dim=2)
-            )
-            model.vert_pos.data[vd <= 0.2] = -1000.0
+        # # Cleanup.
+        # with torch.no_grad():
+        #     model.vert_col.data = torch.clamp(model.vert_col.data, 0.0, 1.0)
+        #     # Remove points.
+        #     model.vert_pos.data[model.vert_rad < 0.001, :] = -1000.0
+        #     model.vert_rad.data[model.vert_rad < 0.001] = 0.0001
+        #     vd = (
+        #         (model.vert_col - torch.ones(1, 1, 3, dtype=torch.float32).to(DEVICE))
+        #         .abs()
+        #         .sum(dim=2)
+        #     )
+        #     model.vert_pos.data[vd <= 0.2] = -1000.0
         # Rotating visualization.
         cam_control = torch.tensor(
             [

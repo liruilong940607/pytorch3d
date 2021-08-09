@@ -388,15 +388,22 @@ GLOBAL void render(
     // Render with NeRF equation.
     // https://arxiv.org/pdf/2003.08934.pdf
     float light_intensity = 1.f;
-    float t_prev = cam_norm.min_dist;
+    float t, t_next;
     for (int i = 0; i < n_track; ++i) {
-      float t = tracker.get_closest_sphere_depth(i);
+      t = tracker.get_closest_sphere_depth(i);
       uint sphere_id =  tracker.get_closest_sphere_id(i);
       uint ball_id = tracker.get_closest_sphere_draw_id(i);
       if (t == MAX_FLOAT || sphere_id == -1 || t < cam_norm.min_dist) {
         continue;
       }
-      float delta_t = FABS(t - t_prev);
+      if (i < n_track - 1) {
+        t_next = tracker.get_closest_sphere_depth(i + 1);
+      } else {
+        t_next = MAX_FLOAT;
+      }
+      if (t_next == MAX_FLOAT)
+        continue;
+      float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = op_d == NULL ? MAX_FLOAT : op_d[sphere_id];
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
@@ -419,7 +426,6 @@ GLOBAL void render(
           result[0], result[1], result[2],
           col_ptr[0], col_ptr[1], col_ptr[2]);
       light_intensity *= att;
-      t_prev = t;
     }
     // background
     for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)

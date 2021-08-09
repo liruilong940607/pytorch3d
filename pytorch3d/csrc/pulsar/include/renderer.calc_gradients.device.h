@@ -82,10 +82,9 @@ GLOBAL void calc_gradients_nerf(
       film_coord_x * (3 + 2 * n_track);
   // Start processing. 
   float accum = 0.f;
-  float light_intensity, t_prev;
+  float light_intensity;
   // PASS 1
   light_intensity = 1.f;
-  t_prev = cam.min_dist;
   for (int grad_idx = 0; grad_idx < n_track; ++grad_idx) {
     int sphere_idx;
     FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx], sphere_idx);
@@ -93,8 +92,19 @@ GLOBAL void calc_gradients_nerf(
         sphere_idx == -1 ||
         sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
     float t = forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1]; // sphere depth
-    if (sphere_idx >= 0 || t >= cam.min_dist) {
-      float delta_t = FABS(t - t_prev);
+    if (sphere_idx >= 0 && t >= cam.min_dist) {
+      float t_next;
+      if (grad_idx < n_track - 1) {
+        t_next = 
+          forw_info_d[fwi_loc + 3 + 2 * (grad_idx + 1) + 1] == -1.f 
+          ? MAX_FLOAT
+          : forw_info_d[fwi_loc + 3 + 2 * (grad_idx + 1) + 1];
+      } else {
+        t_next = MAX_FLOAT;
+      }
+      if (t_next == MAX_FLOAT)
+        continue;
+      float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
@@ -121,7 +131,6 @@ GLOBAL void calc_gradients_nerf(
           grad_im_l[0], grad_im_l[1], grad_im_l[2]);   
       light_intensity *= att;
       accum += weight * total_color;
-      t_prev = t;
     }
   }
   float total_bg = 0.f;
@@ -131,16 +140,26 @@ GLOBAL void calc_gradients_nerf(
   accum += light_intensity * total_bg;
   // PASS 2
   light_intensity = 1.f;
-  t_prev = cam.min_dist;
   for (int grad_idx = 0; grad_idx < n_track; ++grad_idx) {
     int sphere_idx;
     FASI(forw_info_d[fwi_loc + 3 + 2 * grad_idx], sphere_idx);
     PASSERT(
         sphere_idx == -1 ||
         sphere_idx >= 0 && static_cast<uint>(sphere_idx) < num_balls);
-    if (sphere_idx >= 0) {
-      float t = forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1]; // sphere depth
-      float delta_t = FABS(t - t_prev);
+    float t = forw_info_d[fwi_loc + 3 + 2 * grad_idx + 1]; // sphere depth
+    if (sphere_idx >= 0 && t >= cam.min_dist) {
+      float t_next;
+      if (grad_idx < n_track - 1) {
+        t_next = 
+          forw_info_d[fwi_loc + 3 + 2 * (grad_idx + 1) + 1] == -1.f 
+          ? MAX_FLOAT
+          : forw_info_d[fwi_loc + 3 + 2 * (grad_idx + 1) + 1];
+      } else {
+        t_next = MAX_FLOAT;
+      }
+      if (t_next == MAX_FLOAT)
+        continue;
+      float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
@@ -154,7 +173,20 @@ GLOBAL void calc_gradients_nerf(
       accum -= weight * total_color;
       float grad_opy = delta_t * (total_color * light_intensity - accum);
       ATOMICADD(&(grad_opy_d[sphere_idx]), grad_opy);
-      t_prev = t;
+      PULSAR_LOG_DEV_APIX(
+          PULSAR_LOG_GRAD,
+          "grad|nerf opacity. grad_idx(%d), sphere_idx(%d), t(%.5f), "
+          "sigma(%.5f), att(%.5f), alpha(%.5f), "
+          "T(%.5f), weight(%.5f), total_color(%.5f), "
+          "accum(%.5f), "
+          "grad_opy(%.5f), "
+          "grad_im(%.5f, %.5f, %.5f) \n",
+          grad_idx, sphere_idx, t, 
+          sigma, att, 1.f - att,
+          light_intensity, weight, total_color,
+          accum,
+          grad_opy,
+          grad_im_l[0], grad_im_l[1], grad_im_l[2]);  
     }
   }
   END_PARALLEL_2D_NORET();
