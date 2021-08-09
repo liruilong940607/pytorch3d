@@ -94,6 +94,8 @@ GLOBAL void render(
   SHARED DrawInfo di_l[RENDER_BUFFER_SIZE];
   /** The original sphere id of each loaded sphere. */
   SHARED uint sphere_id_l[RENDER_BUFFER_SIZE];
+  /** The ball id of each loaded sphere. (for retrival from di_d) */
+  SHARED uint ball_id_l[RENDER_BUFFER_SIZE];
   /** The number of pixels in this block that are done. */
   SHARED int n_pixels_done;
   /** Whether loading of balls is completed. */
@@ -185,6 +187,7 @@ GLOBAL void render(
         uint write_idx = ATOMICADD_B(&n_loaded, 1u);
         di_l[write_idx] = di_d[ball_idx];
         sphere_id_l[write_idx] = static_cast<uint>(ids_d[ball_idx]);
+        ball_id_l[write_idx] = static_cast<uint>(ball_idx);
         PULSAR_LOG_DEV_PIXB(
             PULSAR_LOG_RENDER_PIX,
             "render|found intersection with sphere %u.\n",
@@ -268,7 +271,7 @@ GLOBAL void render(
                 max_closest_possible_intersection_hit,
                 closest_possible_intersection);
             tracker.track(
-                sphere_id_l[draw_idx], draw_idx, intersection_depth, coord_x, coord_y);
+                sphere_id_l[draw_idx], ball_id_l[draw_idx], intersection_depth, coord_x, coord_y);
           }
           max_closest_possible_intersection = FMAX(
               max_closest_possible_intersection, closest_possible_intersection);
@@ -361,7 +364,7 @@ GLOBAL void render(
             max_closest_possible_intersection_hit,
             closest_possible_intersection);
         tracker.track(
-            sphere_id_l[draw_idx], draw_idx, intersection_depth, coord_x, coord_y);
+            sphere_id_l[draw_idx], ball_id_l[draw_idx], intersection_depth, coord_x, coord_y);
       }
     }
   }
@@ -389,6 +392,7 @@ GLOBAL void render(
     for (int i = 0; i < n_track; ++i) {
       float t = tracker.get_closest_sphere_depth(i);
       uint sphere_id =  tracker.get_closest_sphere_id(i);
+      uint ball_id = tracker.get_closest_sphere_draw_id(i);
       if (t == MAX_FLOAT || sphere_id == -1 || t < cam_norm.min_dist) {
         continue;
       }
@@ -397,19 +401,19 @@ GLOBAL void render(
       float att = FEXP(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
-        cam_norm.n_channels > 3 ? di_d[sphere_id].color_union.ptr : &di_d[sphere_id].first_color;
+        cam_norm.n_channels > 3 ? di_d[ball_id].color_union.ptr : &di_d[ball_id].first_color;
       for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id) {
         PASSERT(isfinite(result[c_id]));
         result[c_id] = FMA(weight, col_ptr[c_id], result[c_id]);
       }
       PULSAR_LOG_DEV_PIX(
           PULSAR_LOG_NERF_PIX,
-          "render|nerf accum. i(%d), sphere_id(%d), t(%.5f), "
+          "render|nerf accum. i(%d), sphere_id(%d), sphere_id2(%d), t(%.5f), "
           "sigma(%.5f), att(%.5f), alpha(%.5f), "
           "T(%.5f), weight(%.5f), "
           "result(%.5f, %.5f, %.5f), "
           "col_ptr(%.5f, %.5f, %.5f) \n",
-          i, sphere_id, t, 
+          i, sphere_id, static_cast<uint>(ids_d[ball_id]), t, 
           sigma, att, 1.f - att,
           light_intensity, weight,
           result[0], result[1], result[2],

@@ -62,7 +62,7 @@ class SceneModel(nn.Module):
         self.register_parameter(
             "vert_rad",
             nn.Parameter(
-                torch.ones(N_POINTS, dtype=torch.float32) * 0.1, requires_grad=False
+                torch.ones(N_POINTS, dtype=torch.float32) * 0.05, requires_grad=False
             ),
         )
         self.register_parameter(
@@ -80,10 +80,11 @@ class SceneModel(nn.Module):
         # The volumetric optimization works better with a higher number of tracked
         # intersections per ray.
         self.renderer = Renderer(
-            WIDTH, HEIGHT, N_POINTS, n_track=128, right_handed_system=True
+            WIDTH, HEIGHT, N_POINTS, n_track=1, right_handed_system=True
         )
 
     def forward(self):
+        import random
         return self.renderer.forward(
             self.vert_pos,
             self.vert_col,
@@ -119,7 +120,7 @@ def cli():
     # Optimizer.
     optimizer = optim.SGD(
         [
-            {"params": [model.vert_col], "lr": 1e-4},
+            {"params": [model.vert_col], "lr": 1e-3},
             # {"params": [model.vert_rad], "lr": 5e-3},
             # {"params": [model.vert_pos], "lr": 1e-2},
             # {"params": [model.opacity], "lr": 1e29},
@@ -127,7 +128,7 @@ def cli():
     )
     LOGGER.info("Optimizing...")
     # Optimize.
-    for i in range(500):
+    for i in range(1500):
         optimizer.zero_grad()
         result, result_info = model()
         # Visualize.
@@ -151,30 +152,38 @@ def cli():
         )
         cv2.imshow("overlay", overlay_img)
         cv2.waitKey(1)
+        result.retain_grad()
         # Update.
         loss = ((result - ref) ** 2).sum()
         LOGGER.info("loss %d: %f", i, loss.item())
         loss.backward()
         print (
-            "python grad:", 
-            model.vert_col[167807], 
-            model.vert_col.grad[167807]
+            "python sphere grad:", 
+            model.vert_col.grad[68599],
+            model.vert_col[68599] 
         )
+        print (
+            "python image grad:",
+            result.grad[10, 10],
+            result[10, 10],
+            ref[10, 10],
+        )
+        print ("\n")
         optimizer.step()
         # print (result_info[50, 375][4::2].long())
         # exit()
         # Cleanup.
-        with torch.no_grad():
-            model.vert_col.data = torch.clamp(model.vert_col.data, 0.0, 1.0)
-            # Remove points.
-            model.vert_pos.data[model.vert_rad < 0.001, :] = -1000.0
-            model.vert_rad.data[model.vert_rad < 0.001] = 0.0001
-            vd = (
-                (model.vert_col - torch.ones(3, dtype=torch.float32).to(DEVICE))
-                .abs()
-                .sum(dim=1)
-            )
-            model.vert_pos.data[vd <= 0.2] = -1000.0
+        # with torch.no_grad():
+        #     model.vert_col.data = torch.clamp(model.vert_col.data, 0.0, 1.0)
+        #     # Remove points.
+        #     model.vert_pos.data[model.vert_rad < 0.001, :] = -1000.0
+        #     model.vert_rad.data[model.vert_rad < 0.001] = 0.0001
+        #     vd = (
+        #         (model.vert_col - torch.ones(3, dtype=torch.float32).to(DEVICE))
+        #         .abs()
+        #         .sum(dim=1)
+        #     )
+        #     model.vert_pos.data[vd <= 0.2] = -1000.0
     LOGGER.info("Done.")
 
 
