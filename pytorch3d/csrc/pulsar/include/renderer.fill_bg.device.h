@@ -32,7 +32,8 @@ GLOBAL void fill_bg(
     // This location has not been processed yet.
     // Write first the forw_info:
     if (mode == 2) {
-      // NeRF rendering don't need the sm_m and sm_d
+      // NeRF rendering don't need the sm_m
+      renderer.forw_info_d[write_loc + 1] = 1.f;
     }
     else {
       // sm_m

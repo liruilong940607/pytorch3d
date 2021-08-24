@@ -401,8 +401,6 @@ GLOBAL void render(
       } else {
         t_next = MAX_FLOAT;
       }
-      if (t_next == MAX_FLOAT)
-        continue;
       float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = op_d == NULL ? MAX_FLOAT : op_d[sphere_id];
       float att = FEXP(- delta_t * sigma);

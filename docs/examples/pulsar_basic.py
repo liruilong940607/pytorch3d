@@ -60,15 +60,16 @@ def cli():
         device=device,
     )
     # Render.
-    image = renderer(
+    image, _ = renderer(
         vert_pos,
         vert_col,
         vert_rad,
         cam_params,
         1.0e-1,  # Renderer blending parameter gamma, in [1., 1e-5].
         45.0,  # Maximum depth.
-        opacity=opacity,
+        # opacity=opacity,
         mode=2,
+        return_forward_info=True,
     )
     # image.sum().backward()
     # print (vert_col.grad)
