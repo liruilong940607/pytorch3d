@@ -9,6 +9,7 @@
 #ifndef PULSAR_NATIVE_INCLUDE_RENDERER_CALC_GRADIENTS_H_
 #define PULSAR_NATIVE_INCLUDE_RENDERER_CALC_GRADIENTS_H_
 
+#include <math.h> 
 #include "../global.h"
 #include "./commands.h"
 #include "./renderer.h"
@@ -102,11 +103,10 @@ GLOBAL void calc_gradients_nerf(
       } else {
         t_next = MAX_FLOAT;
       }
-      if (t_next == MAX_FLOAT)
-        continue;
       float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
-      float att = FEXP(- delta_t * sigma);
+      // Do not use FEXP() here. The error is not marginal!
+      float att = exp(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
         cam.n_channels > 3 ? di_d[sphere_idx].color_union.ptr : &di_d[sphere_idx].first_color;
@@ -158,10 +158,14 @@ GLOBAL void calc_gradients_nerf(
         t_next = MAX_FLOAT;
       }
       if (t_next == MAX_FLOAT)
-        continue;
+        // For the last sphere, the opacity gradient is always zero.
+        // So we can safely skip it. This is a workaround to avoid 
+        // numeric error caused by exp(- delta_t * sigma)
+        break;
       float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = opacity == NULL ? MAX_FLOAT : opacity[sphere_idx];
-      float att = FEXP(- delta_t * sigma);
+      // Do not use FEXP() here. The error is not marginal!
+      float att = exp(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
         cam.n_channels > 3 ? di_d[sphere_idx].color_union.ptr : &di_d[sphere_idx].first_color;

@@ -9,6 +9,7 @@
 #ifndef PULSAR_NATIVE_INCLUDE_RENDERER_RENDER_DEVICE_H_
 #define PULSAR_NATIVE_INCLUDE_RENDERER_RENDER_DEVICE_H_
 
+#include <math.h> 
 #include "../global.h"
 #include "./camera.device.h"
 #include "./commands.h"
@@ -403,7 +404,8 @@ GLOBAL void render(
       }
       float delta_t = FMIN(FABS(t_next - t), 1e10);
       float sigma = op_d == NULL ? MAX_FLOAT : op_d[sphere_id];
-      float att = FEXP(- delta_t * sigma);
+      // Do not use FEXP() here. The error is not marginal!
+      float att = exp(- delta_t * sigma);
       float weight = light_intensity * (1.f - att);
       float const* const col_ptr =
         cam_norm.n_channels > 3 ? di_d[ball_id].color_union.ptr : &di_d[ball_id].first_color;
@@ -413,12 +415,12 @@ GLOBAL void render(
       }
       PULSAR_LOG_DEV_PIX(
           PULSAR_LOG_NERF_PIX,
-          "render|nerf accum. i(%d), sphere_id(%d), sphere_id2(%d), t(%.5f), "
+          "render|nerf accum. i(%d), sphere_id(%d), sphere_id2(%d), t(%.5f), delta_t(%.5f) "
           "sigma(%.5f), att(%.5f), alpha(%.5f), "
           "T(%.5f), weight(%.5f), "
           "result(%.5f, %.5f, %.5f), "
           "col_ptr(%.5f, %.5f, %.5f) \n",
-          i, sphere_id, static_cast<uint>(ids_d[ball_id]), t, 
+          i, sphere_id, static_cast<uint>(ids_d[ball_id]), t, delta_t,
           sigma, att, 1.f - att,
           light_intensity, weight,
           result[0], result[1], result[2],

@@ -43,7 +43,7 @@ def cli():
     vert_pos[:, :2] -= 5.0
     vert_col = torch.rand(n_points, 3, dtype=torch.float32, device=device, requires_grad=True)
     vert_rad = torch.rand(n_points, dtype=torch.float32, device=device)
-    opacity = torch.ones_like(vert_rad) * 0.02
+    opacity = torch.ones_like(vert_rad) * 0.01
     opacity.requires_grad = True
     cam_params = torch.tensor(
         [
@@ -67,13 +67,17 @@ def cli():
         cam_params,
         1.0e-1,  # Renderer blending parameter gamma, in [1., 1e-5].
         45.0,  # Maximum depth.
-        # opacity=opacity,
+        opacity=opacity,
         mode=2,
         return_forward_info=True,
     )
-    # image.sum().backward()
-    # print (vert_col.grad)
-    # print (opacity.grad)
+
+    x, y = 650, 300
+    print (y, x, image[y, x])
+    image[y, x].sum().backward()
+    print (vert_col.grad)
+    print (opacity.grad)
+
     LOGGER.info("Writing image to `%s`.", path.abspath("basic.png"))
     imageio.imsave("basic.png", (image.cpu().detach() * 255.0).to(torch.uint8).numpy())
     LOGGER.info("Done.")
