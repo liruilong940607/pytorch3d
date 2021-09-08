@@ -51,7 +51,7 @@ void forward(
           cam.film_height == self->cam.film_height,
       5,
       "cam result width and height must agree");
-  ARGCHECK(mode <= 2, 10, "mode must be <= 2!");
+  ARGCHECK(mode <= 3, 10, "mode must be <= 3!");
   if (percent_allowed_difference > 1.f - FEPS) {
     LOG(WARNING) << "percent_allowed_difference > " << (1.f - FEPS)
                  << "! Clamping to " << (1.f - FEPS) << ".";
@@ -263,7 +263,7 @@ void forward(
       }
     }
   }
-  if (mode == 0 || mode == 2) {
+  if (mode == 0 || mode == 2 || mode == 3) {
     LAUNCH_MAX_PARALLEL_2D(
         fill_bg<DEV>,
         static_cast<int64_t>(self->cam.film_width),

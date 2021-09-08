@@ -54,7 +54,7 @@ void backward(
           cam.film_height == self->cam.film_height,
       5,
       "cam film size must agree");
-  ARGCHECK(mode <= 2, 10, "mode must be <= 2!");
+  ARGCHECK(mode <= 3, 10, "mode must be <= 3!");
   if (percent_allowed_difference < EPS) {
     LOG(WARNING) << "percent_allowed_difference < " << FEPS << "! Clamping to "
                  << FEPS << ".";

@@ -50,7 +50,7 @@ GLOBAL void fill_bg(
       IASF(sphere_id, renderer.forw_info_d[write_loc + 3 + i * 2]);
       renderer.forw_info_d[write_loc + 3 + i * 2 + 1] = -1.f;
     }
-    if (mode == 0 or mode == 2) {
+    if (mode == 0 or mode == 2 or mode == 3) {
       // Image background.
       for (int i = 0; i < cam.n_channels; ++i) {
         renderer.result_d

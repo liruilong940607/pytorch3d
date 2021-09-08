@@ -237,7 +237,7 @@ GLOBAL void render(
               ray_dir_norm, // Ray direction.
               projected_ray, // Ray intersection with the image.
               // Mode switches.
-              mode == 2u ? true : false, // Hit Only
+              mode >= 2u ? true : false, // Hit Only
               true, // Draw.
               false,
               false,
@@ -330,7 +330,7 @@ GLOBAL void render(
           ray_dir_norm, // Ray direction.
           projected_ray, // Ray intersection with the image.
           // Mode switches.
-          mode == 2u ? true : false, // Hit Only
+          mode >= 2u ? true : false, // Hit Only
           true, // Draw.
           false,
           false,
@@ -386,14 +386,14 @@ GLOBAL void render(
             static_cast<float>(tracker.get_n_hits());
   }
   else if (mode == 2u) {
-    // Render with NeRF equation.
+    // Render with NeRF equation in a naive way.
     // https://arxiv.org/pdf/2003.08934.pdf
     float light_intensity = 1.f;
     float t, t_next;
     for (int i = 0; i < n_track; ++i) {
       t = tracker.get_closest_sphere_depth(i);
-      uint sphere_id =  tracker.get_closest_sphere_id(i);
-      uint ball_id = tracker.get_closest_sphere_draw_id(i);
+      int sphere_id =  tracker.get_closest_sphere_id(i);
+      int ball_id = tracker.get_closest_sphere_draw_id(i);
       if (t == MAX_FLOAT || sphere_id == -1 || t < cam_norm.min_dist) {
         continue;
       }
@@ -426,6 +426,129 @@ GLOBAL void render(
           result[0], result[1], result[2],
           col_ptr[0], col_ptr[1], col_ptr[2]);
       light_intensity *= att;
+    }
+    // background
+    for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)
+      result[c_id] = FMA(light_intensity, bg_col[c_id], result[c_id]);
+    // save tracker info for backward
+    int write_loc = (coord_y - cam_norm.film_border_top) * cam_norm.film_width *
+            (3 + 2 * n_track) +
+        (coord_x - cam_norm.film_border_left) * (3 + 2 * n_track);
+    forw_info_d[write_loc + 1] = 1.0;  // for fill_bg check
+    for (int i = 0; i < n_track; ++i) {
+      int sphere_id = tracker.get_closest_sphere_id(i);
+      IASF(sphere_id, forw_info_d[write_loc + 3 + i * 2]);
+      forw_info_d[write_loc + 3 + i * 2 + 1] =
+          tracker.get_closest_sphere_depth(i) == MAX_FLOAT
+          ? -1.f
+          : tracker.get_closest_sphere_depth(i);
+      PULSAR_LOG_DEV_PIX(
+          PULSAR_LOG_RENDER_PIX,
+          "render|writing %d most important: id: %d, normalized depth: %f.\n",
+          i,
+          tracker.get_closest_sphere_id(i),
+          tracker.get_closest_sphere_depth(i));
+    }
+  } else if (mode == 3u) {
+    // Render with NeRF equation in with dense sampling.
+    // https://arxiv.org/pdf/2003.08934.pdf
+    int n_samples = 64;
+    float t_min = cam_norm.min_dist;
+    float t_max = cam_norm.max_dist;
+    // // Find the range on the ray to be sampled.
+    // float t_min = MAX_FLOAT;
+    // float t_max = - MAX_FLOAT;
+    // for (int i = 0; i < n_track; ++i) {
+    //   float t = tracker.get_closest_sphere_depth(i);
+    //   if (t == MAX_FLOAT) continue;
+    //   if (t < t_min) t_min = t;
+    //   if (t > t_max) t_max = t;
+    //   int sphere_id = tracker.get_closest_sphere_id(i);
+    //   int ball_id = tracker.get_closest_sphere_draw_id(i);
+    //   PULSAR_LOG_DEV_PIX(
+    //       PULSAR_LOG_NERF_PIX,
+    //       "render|nerf verts. i(%d), t_center(%.5f), radius(%.5f), opacity(%.5f) \n",
+    //       i,
+    //       di_d[ball_id].t_center,
+    //       di_d[ball_id].radius,
+    //       op_d[sphere_id]);
+    // }
+    // Nerf accumulation on samples
+    float light_intensity = 1.f;
+    if (t_min == MAX_FLOAT or t_max == - MAX_FLOAT) {
+      // No spheres interacted with this ray. Do nothing.
+    // } else if (t_min == t_max) {
+    //   // TODO: Only one sphere interacted with this ray. Then all samples
+    //   // are actually on the same location. That means `delta_t` is 
+    //   // zero (`weight` is zero too!) for all samples but the last one. 
+    //   // So in this case, It is equivalent with only one sample at this
+    //   // location. And according to the IDW formula, the attributes of
+    //   // this sample is the same with that sphere.
+    } else {
+      // Both the first and the last samples are included.
+      float delta_t = (t_max - t_min) / (n_samples - 1);
+      for (int sample_id = 0; sample_id < n_samples; ++sample_id) {
+        float t = t_min + delta_t * sample_id;
+        /** The sampled point in the camera coordinate system. */
+        float3 p = ray_dir_norm * t;
+        // For each sampled point, we accumulate its attributes by
+        // IDW (inverse distance weighted) interpolation across
+        // all the spheres that are interated with it.
+        float denominator = 0.f;
+        float p_sigma = 0.f;
+        // TODO(ruilongli): hard-code n_channels to 3 here. Need to dynamiclly
+        // construct a vector to hold the values.
+        float p_col_ptr[3] = {0.f};
+        for (int i = 0; i < n_track; ++i) {
+          int sphere_id = tracker.get_closest_sphere_id(i);
+          int ball_id = tracker.get_closest_sphere_draw_id(i);
+          if (sphere_id == -1) continue;
+          // float closest_possible_intersection =
+          //   di_d[ball_id].t_center - di_d[ball_id].radius;
+          // float furthest_possible_intersection =
+          //   di_d[ball_id].t_center + di_d[ball_id].radius;
+          // if (
+          //   t < closest_possible_intersection
+          //   or t > furthest_possible_intersection
+          // ) continue;
+          /** The sphere center in the camera coordinate system. */
+          float3 center = di_d[ball_id].ray_center_norm * di_d[ball_id].t_center;
+          /** The distance between the sphere and the sampled point */
+          float dist = length(center - p);
+          // if (dist > di_d[ball_id].radius) continue;
+          float dist_pow = FMAX(pow(dist, 6), FEPS);
+          denominator += 1.0 / dist_pow;
+          float sigma = op_d == NULL ? 0.f : op_d[sphere_id];
+          PASSERT(isfinite(p_sigma));
+          p_sigma += sigma / dist_pow;
+          float const* const col_ptr =
+            cam_norm.n_channels > 3 ? di_d[ball_id].color_union.ptr : &di_d[ball_id].first_color;
+          for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id) {
+            PASSERT(isfinite(p_col_ptr[c_id]));
+            p_col_ptr[c_id] += col_ptr[c_id] / dist_pow;
+          }
+          PULSAR_LOG_DEV_PIX(
+            PULSAR_LOG_NERF_PIX,
+            "render|nerf accum. sample_id(%d), i(%d), dist(%.5f), t(%.5f), p_sigma(%.5f) \n",
+            sample_id, i, dist, t, p_sigma);
+        }
+        if (denominator > 0) {
+          p_sigma /= denominator;
+          for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id) {
+            p_col_ptr[c_id] /= denominator;
+          }
+        }
+        float att;
+        // if (sample_id == n_samples - 1) att = 0.f;  // delta_t is MAX_FLOAT
+        // else att = exp(- delta_t * p_sigma);
+        att = exp(- delta_t * p_sigma);
+        float weight = light_intensity * (1.f - att);
+        for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id) {
+          PASSERT(isfinite(result[c_id]));
+          result[c_id] = FMA(weight, p_col_ptr[c_id], result[c_id]);
+        }
+        light_intensity *= att;
+      }
     }
     // background
     for (uint c_id = 0; c_id < cam_norm.n_channels; ++c_id)
