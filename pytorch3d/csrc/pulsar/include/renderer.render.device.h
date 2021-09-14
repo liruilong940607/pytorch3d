@@ -517,7 +517,7 @@ GLOBAL void render(
           float dist = length(center - p);
           // if (dist > di_d[ball_id].radius) continue;
           float dist_pow = FMAX(pow(dist, 6), FEPS);
-          denominator += 1.0 / dist_pow;
+          denominator += 1.0f / dist_pow;
           float sigma = op_d == NULL ? 0.f : op_d[sphere_id];
           PASSERT(isfinite(p_sigma));
           p_sigma += sigma / dist_pow;
@@ -561,10 +561,8 @@ GLOBAL void render(
     for (int i = 0; i < n_track; ++i) {
       int sphere_id = tracker.get_closest_sphere_id(i);
       IASF(sphere_id, forw_info_d[write_loc + 3 + i * 2]);
-      forw_info_d[write_loc + 3 + i * 2 + 1] =
-          tracker.get_closest_sphere_depth(i) == MAX_FLOAT
-          ? -1.f
-          : tracker.get_closest_sphere_depth(i);
+      int ball_id = tracker.get_closest_sphere_draw_id(i);
+      IASF(ball_id, forw_info_d[write_loc + 3 + i * 2 + 1]);
       PULSAR_LOG_DEV_PIX(
           PULSAR_LOG_RENDER_PIX,
           "render|writing %d most important: id: %d, normalized depth: %f.\n",

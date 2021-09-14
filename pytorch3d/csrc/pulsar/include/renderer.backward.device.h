@@ -141,8 +141,41 @@ void backward(
         self->grad_opy_d,
         self->ids_sorted_d,
         self->n_track);
-  }
-  else {
+  } else if (mode == 3u) {
+    // Backward the NeRF equation with samplings.
+    LAUNCH_PARALLEL_2D(
+        calc_gradients_sampling_nerf<DEV>,
+        self->cam.film_width,
+        self->cam.film_height,
+        GRAD_BLOCK_SIZE,
+        GRAD_BLOCK_SIZE,
+        stream,
+        self->cam,
+        grad_im,
+        gamma,
+        reinterpret_cast<const float3*>(vert_pos),
+        vert_col,
+        vert_rad,
+        vert_opy_d,
+        bg_col,
+        num_balls,
+        image,
+        forw_info,
+        self->di_d,
+        self->ii_d,
+        dif_pos,
+        dif_col,
+        dif_rad,
+        dif_cam,
+        dif_opy,
+        self->grad_rad_d,
+        self->grad_col_d,
+        self->grad_pos_d,
+        self->grad_cam_buf_d,
+        self->grad_opy_d,
+        self->ids_sorted_d,
+        self->n_track);
+  } else {
     // Backward the Pulsar equation.
     LAUNCH_PARALLEL_2D(
         calc_gradients<DEV>,
@@ -181,7 +214,7 @@ void backward(
   STOP_TIME(calc_gradients);
   START_TIME(normalize);
 #endif
-  if (mode == 2u) {
+  if (mode == 2u or mode == 3u) {
     // Don't do gradients normalization & camera gradients for
     // NeRF equation backward.
   }

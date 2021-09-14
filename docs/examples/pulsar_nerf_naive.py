@@ -64,7 +64,7 @@ def generate_rays(w, h, focal, camtoworlds):
 vert_pos = torch.rand(n_points, 3, dtype=torch.float32, device=device) * 10.0
 vert_pos[:, 2] += 25.0
 vert_pos[:, :2] -= 5.0
-vert_col = torch.rand(n_points, 3, dtype=torch.float32, device=device)
+vert_col = torch.rand(n_points, 3, dtype=torch.float32, device=device, requires_grad=True)
 opacity = torch.rand(n_points, dtype=torch.float32, device=device) * 1
 cam_params = torch.tensor(
     [
@@ -194,4 +194,21 @@ def volumetric_rendering(rgb, sigma, z_vals, dirs, white_bkgd):
 comp_rgb, disp, acc, weights = volumetric_rendering(
     rgb, sigma, z_vals, dirs, white_bkgd=True)
 img = comp_rgb.view(height, width, 3)
-cv2.imwrite("./nerf_naive.jpg", np.uint8(img.cpu().numpy() * 255)[:, :, ::-1])
+cv2.imwrite("./nerf_naive.jpg", np.uint8(img.detach().cpu().numpy() * 255)[:, :, ::-1])
+
+x, y = 200, 200
+print (y, x, img[y, x])
+img[y, x].sum().backward()
+print (vert_col.grad)
+# 200 200 tensor([0.4546, 0.6962, 0.5592], device='cuda:0', dtype=torch.float64,
+#        grad_fn=<SelectBackward>)
+# tensor([[0.0000, 0.0000, 0.0000],
+#         [0.0041, 0.0041, 0.0041],
+#         [0.0000, 0.0000, 0.0000],
+#         [0.0000, 0.0000, 0.0000],
+#         [0.0000, 0.0000, 0.0000],
+#         [0.0000, 0.0000, 0.0000],
+#         [0.0000, 0.0000, 0.0000],
+#         [0.1396, 0.1396, 0.1396],
+#         [0.8563, 0.8563, 0.8563],
+#         [0.0000, 0.0000, 0.0000]], device='cuda:0')

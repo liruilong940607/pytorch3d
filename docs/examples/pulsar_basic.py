@@ -36,7 +36,7 @@ def cli():
     """
     LOGGER.info("Rendering on GPU...")
     torch.manual_seed(1)
-    n_points = 10000
+    n_points = 10
     width = 400
     height = 400
     device = torch.device("cuda")
@@ -79,10 +79,10 @@ def cli():
         return_forward_info=True,
     )
 
-    # x, y = 650, 300
-    # print (y, x, image[y, x])
-    # image[y, x].sum().backward()
-    # print (vert_col.grad)
+    x, y = 200, 200
+    print (y, x, image[y, x])
+    image[y, x].sum().backward()
+    print (vert_col.grad)
     # print (opacity.grad)
 
     LOGGER.info("Writing image to `%s`.", path.abspath("basic.png"))
