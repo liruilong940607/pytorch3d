@@ -66,6 +66,7 @@ vert_pos[:, 2] += 25.0
 vert_pos[:, :2] -= 5.0
 vert_col = torch.rand(n_points, 3, dtype=torch.float32, device=device, requires_grad=True)
 opacity = torch.rand(n_points, dtype=torch.float32, device=device) * 1
+opacity.requires_grad = True
 cam_params = torch.tensor(
     [
         0.0,
@@ -200,6 +201,7 @@ x, y = 200, 200
 print (y, x, img[y, x])
 img[y, x].sum().backward()
 print (vert_col.grad)
+print (opacity.grad)
 # 200 200 tensor([0.4546, 0.6962, 0.5592], device='cuda:0', dtype=torch.float64,
 #        grad_fn=<SelectBackward>)
 # tensor([[0.0000, 0.0000, 0.0000],
@@ -212,3 +214,5 @@ print (vert_col.grad)
 #         [0.1396, 0.1396, 0.1396],
 #         [0.8563, 0.8563, 0.8563],
 #         [0.0000, 0.0000, 0.0000]], device='cuda:0')
+# tensor([0.0000, 0.0005, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0207, 0.0758,
+#         0.0000], device='cuda:0')

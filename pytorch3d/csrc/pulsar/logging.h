@@ -49,8 +49,8 @@
 #define PULSAR_LOG_DRAW_PIX_ALL false
 #define PULSAR_LOG_BACKWARD false
 #define PULSAR_LOG_GRAD true
-#define PULSAR_LOG_GRAD_X 200
-#define PULSAR_LOG_GRAD_Y 200
+#define PULSAR_LOG_GRAD_X 5
+#define PULSAR_LOG_GRAD_Y 11
 #define PULSAR_LOG_GRAD_ALL false
 #define PULSAR_LOG_NORMALIZE false
 #define PULSAR_LOG_NORMALIZE_X 0

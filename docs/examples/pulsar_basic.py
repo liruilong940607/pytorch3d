@@ -83,7 +83,7 @@ def cli():
     print (y, x, image[y, x])
     image[y, x].sum().backward()
     print (vert_col.grad)
-    # print (opacity.grad)
+    print (opacity.grad)
 
     LOGGER.info("Writing image to `%s`.", path.abspath("basic.png"))
     imageio.imsave("basic.png", (image.cpu().detach() * 255.0).to(torch.uint8).numpy())
